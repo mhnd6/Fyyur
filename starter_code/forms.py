@@ -115,6 +115,14 @@ class VenueForm(Form):
             ('Other', 'Other'),
         ]
     )
+    seeking_description = StringField(
+        'seeking_description'
+    )
+    website = StringField(
+        # TODO implement enum restriction
+        'website', validators=[URL()]
+    )
+
     facebook_link = StringField(
         'facebook_link', validators=[URL()]
     )
