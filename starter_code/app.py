@@ -35,7 +35,7 @@ migrate = Migrate(app, db)
 
 class Venue(db.Model):
     __tablename__ = 'venue'
-
+    # I added seeking talent and description and relationship with shows model
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     city = db.Column(db.String(120))
@@ -53,7 +53,7 @@ class Venue(db.Model):
 
 class Artist(db.Model):
     __tablename__ = 'artist'
-
+    # I added seeking talent and description and relationship with shows model
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     city = db.Column(db.String(120))
@@ -66,6 +66,8 @@ class Artist(db.Model):
     seeking_venue = db.Column(db.Boolean, default=False)
     seeking_description = db.Column(db.String(500))
     shows = db.relationship('Shows', backref='artist', lazy=True)
+
+    # I created shows model
 
 
 class Shows(db.Model):
@@ -94,6 +96,24 @@ def format_datetime(value, format='medium'):
 app.jinja_env.filters['datetime'] = format_datetime
 
 #----------------------------------------------------------------------------#
+# My methods.
+#----------------------------------------------------------------------------#
+
+
+def compareBetweenYears(showTime):
+    # getting today year
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    today = format_datetime(dt_string)
+    todayArray = today.replace(',', '').split(' ')
+    todaYear = todayArray[3]
+    # getting show year
+    showTime = format_datetime(showTime)
+    showTimeArray = showTime.replace(',', '').split(' ')
+    showYear = showTimeArray[3]
+    return todaYear < showYear
+
+#----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
 
@@ -109,10 +129,10 @@ def index():
 @app.route('/venues')
 def venues():
     data = list()
-
+    # I used group by to get list of cities and states
     results = db.session.query(Venue.city, Venue.state).group_by(
         Venue.state, Venue.city)
-
+    # I added every venue to it's corresponding city and state
     for cityAndState in results.all():
         venues = Venue.query.filter_by(
             city=cityAndState.city, state=cityAndState.state).all()
@@ -135,6 +155,8 @@ def venues():
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
+    # I used strip method to remove white spaces
+    # then from stackover flow I learned how to filter the results case insensitive
     term = request.form.get('search_term', '').strip()
     results = Venue.query.filter(func.lower(Venue.name).contains(term.lower()))
     data = list()
@@ -158,19 +180,11 @@ def search_venues():
 def show_venue(venue_id):
     venue = Venue.query.get(venue_id)
     venue.genres = venue.genres.split(',')
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    today = format_datetime(dt_string)
-    todayArray = today.replace(',', '').split(' ')
-    todaYear = todayArray[3]
 
     past_shows = list()
     upcoming_shows = list()
     for show in venue.shows:
-        showTime = format_datetime(show.start_time)
-        showTimeArray = showTime.replace(',', '').split(' ')
-        showYear = showTimeArray[3]
-        pastOrfuture = todaYear < showYear
+        pastOrfuture = compareBetweenYears(show.start_time)
         showTemp = {
             'artist_id': show.artist_id,
             'artist_name': Artist.query.get(show.artist_id).name,
@@ -202,6 +216,7 @@ def create_venue_form():
 @ app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
     try:
+        # taking venue information from the form
         name = request.form['name']
         city = request.form['city']
         state = request.form['state']
@@ -239,6 +254,7 @@ def create_venue_submission():
 
 @ app.route('/venues/<venue_id>/delete')
 def delete_venue(venue_id):
+    # delete venue and every related shows
     venue = Venue.query.get(venue_id)
     venueShows = venue.shows
     for show in venueShows:
@@ -293,19 +309,10 @@ def show_artist(artist_id):
 
     artist = Artist.query.get(artist_id)
     artist.genres = artist.genres.split(',')
-    now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    today = format_datetime(dt_string)
-    todayArray = today.replace(',', '').split(' ')
-    todaYear = todayArray[3]
-
     past_shows = list()
     upcoming_shows = list()
     for show in artist.shows:
-        showTime = format_datetime(show.start_time)
-        showTimeArray = showTime.replace(',', '').split(' ')
-        showYear = showTimeArray[3]
-        pastOrfuture = todaYear < showYear
+        pastOrfuture = compareBetweenYears(show.start_time)
         showTemp = {
 
             'venue_id': show.venue_id,
@@ -358,6 +365,7 @@ def edit_artist_submission(artist_id):
         genres = ','.join(genresArray)
         artist.genres = genres
         seeking_description = request.form['seeking_description']
+        # if the seeking description empty or None the seeking venue false
         if seeking_description == '' or seeking_description == 'None':
             seeking_venue = False
         else:
@@ -471,14 +479,6 @@ def create_artist_submission():
 
 #  Shows
 #  ----------------------------------------------------------------
-class Show:
-    def __init__(self, venue_id, artist_id, venue_name, artist_name, artist_image_link, start_time):
-        self.venue_id = venue_id
-        self.artist_id = artist_id
-        self.venue_name = venue_name
-        self.artist_name = artist_name
-        self.artist_image_link = artist_image_link
-        self.start_time = start_time
 
 
 @ app.route('/shows')
@@ -487,14 +487,16 @@ def shows():
     showsArr = Shows.query.all()
 
     for show in showsArr:
-        showTemp = Show(
-            show.venue_id,
-            show.artist_id,
-            Venue.query.get(show.venue_id).name,
-            Artist.query.get(show.artist_id).name,
-            Artist.query.get(show.artist_id).image_link,
-            show.start_time
-        )
+        showTemp = {
+
+            'venue_id': show.venue_id,
+            'artist_id': show.artist_id,
+            'venue_name': Venue.query.get(show.venue_id).name,
+            'artist_name': Artist.query.get(show.artist_id).name,
+            'artist_image_link': Artist.query.get(show.artist_id).image_link,
+            'start_time': show.start_time
+        }
+
         data.append(showTemp)
 
     return render_template('pages/shows.html', shows=data)
