@@ -33,6 +33,8 @@ migrate = Migrate(app, db)
 # Models.
 #----------------------------------------------------------------------------#
 
+# I moved all the models to models.py file
+
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -136,9 +138,13 @@ def show_venue(venue_id):
     venue = Venue.query.get(venue_id)
     venue.genres = venue.genres.split(',')
 
+    # After checking the review I impelmented the JOIN statment below:
+    shows = db.session.query(Shows).join(
+        Venue, Shows.venue_id == venue_id).all()
+
     past_shows = list()
     upcoming_shows = list()
-    for show in venue.shows:
+    for show in shows:
         pastOrfuture = compareBetweenYears(show.start_time)
         showTemp = {
             'artist_id': show.artist_id,
@@ -264,9 +270,14 @@ def show_artist(artist_id):
 
     artist = Artist.query.get(artist_id)
     artist.genres = artist.genres.split(',')
+
+    # After checking the review I impelmented the JOIN statment below to get the shows:
+    shows = db.session.query(Shows).join(
+        Venue, Shows.artist_id == artist_id).all()
+
     past_shows = list()
     upcoming_shows = list()
-    for show in artist.shows:
+    for show in shows:
         pastOrfuture = compareBetweenYears(show.start_time)
         showTemp = {
 
